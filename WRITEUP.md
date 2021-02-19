@@ -1,11 +1,7 @@
-1. Explain the functionality of what's provided in motion_planning.py and planning_utils.py
+##1. Explain the functionality of what's provided in motion_planning.py and planning_utils.py
 motion_planning.py is implemented with a event-driven based on a finite state automated machine code similar to backyard_flyer.py. A Planning state is added to automatically generate waypoints in motion_planning.py which is hardcoded in backyard_flyer.py.
 
 The new PLANNING state comes between ARMING and TAKEOFF. When the drone is at the state ARMING and it is actually armed state_callback method and the transition to PLANNING is executed on the method plan_path. This method responsibility is to calculate the waypoints necessary for the drone to arrive at its destination.
-
-flowchart
-
-Diagram http://www.nomnoml.com/ : [start]->[Manual] [Manual]->[Arming] [Arming]->[Planning] [Planning]->[Takeoff] [Takeoff]->[Waypoint] [Waypoint]->[Waypoint] [Waypoint]->[Landing] [Landing]->[Disarming] [Disarming]->[Manual]
 
 The planning_utils.py contains all the classes and functions required for path planning. The most significant method that it contains is a_star() which lets us route the drone to it's goal. The A* graph search algorithm is like the djikstra's shortest path algo but Heuristic in nature and not greedy. Needless to say if planning_utils.py contains the A* algo then it also contains the graph creation which is encapsulated in the create_grid() function.
 
