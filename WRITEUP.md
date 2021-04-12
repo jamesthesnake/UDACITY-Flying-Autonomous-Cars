@@ -19,7 +19,7 @@ This local position is in local-position and we use the grid to start!
 4. Set grid goal position from geodetic coords
 The grid goal position may be set with command line arguments.
 
-python motion_planning.py --lon 500 --lat 500 --goal_alt 5
+python motion_planning.py --lon 500 --lat 500 --alt 5
 All these value have been made optional.
 
 This allows you to control the target and altitude
