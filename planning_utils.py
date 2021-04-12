@@ -1,9 +1,6 @@
-
 from enum import Enum
 from queue import PriorityQueue
 import numpy as np
-import utm as u
-import matplotlib.pyplot as plt
 from bresenham import bresenham
 
 
@@ -35,13 +32,12 @@ def create_grid(data, drone_altitude, safety_distance):
         north, east, alt, d_north, d_east, d_alt = data[i, :]
         if alt + d_alt + safety_distance > drone_altitude:
             obstacle = [
-                int(np.clip(north - d_north - safety_distance -
-                            north_min, 0, north_size-1)),
-                int(np.clip(north + d_north + safety_distance -
-                            north_min, 0, north_size-1)),
+                int(np.clip(north - d_north - safety_distance - north_min, 0, north_size-1)),
+                int(np.clip(north + d_north + safety_distance - north_min, 0, north_size-1)),
                 int(np.clip(east - d_east - safety_distance - east_min, 0, east_size-1)),
                 int(np.clip(east + d_east + safety_distance - east_min, 0, east_size-1)),
             ]
+
             grid[obstacle[0]:obstacle[1]+1, obstacle[2]:obstacle[3]+1] = 1
 
     return grid, int(north_min), int(east_min)
@@ -51,6 +47,7 @@ def create_grid(data, drone_altitude, safety_distance):
 class Action(Enum):
     """
     An action is represented by a 3 element tuple.
+
     The first 2 values are the delta of the action relative
     to the current grid position. The third and final value
     is the cost of performing the action.
@@ -60,10 +57,11 @@ class Action(Enum):
     EAST = (0, 1, 1)
     NORTH = (-1, 0, 1)
     SOUTH = (1, 0, 1)
-    NE = (-1, 1, np.around(np.sqrt(2), decimals=2))
-    SE = (1, 1, np.around(np.sqrt(2), decimals=2))
-    NW = (-1, -1, np.around(np.sqrt(2), decimals=2))
-    SW = (1, -1, np.around(np.sqrt(2), decimals=2))
+    # Diagonal actions
+    WE_NOR = (-1, -1, np.sqrt(2))
+    WE_SOU = (1, -1, np.sqrt(2))
+    EA_NOR = (-1, 1, np.sqrt(2))
+    EA_SOU = (1, 1, np.sqrt(2))
 
     @property
     def cost(self):
@@ -93,17 +91,37 @@ def valid_actions(grid, current_node):
         valid_actions.remove(Action.WEST)
     if y + 1 > m or grid[x, y + 1] == 1:
         valid_actions.remove(Action.EAST)
-    if x-1 < 0 or y+1 > m or grid[x-1, y+1] == 1:
-        valid_actions.remove(Action.NE)
-    if x+1 > n or y+1 > m or grid[x+1, y+1] == 1:
-        valid_actions.remove(Action.SE)
-    if x-1 < 0 or y-1 < 0 or grid[x-1, y-1] == 1:
-        valid_actions.remove(Action.NW)
-    if x+1 > n or y-1 < 0 or grid[x+1, y-1] == 1:
-        valid_actions.remove(Action.SW)
+    
+    # filter diagonal action feasibility
+    if x - 1 < 0 or y - 1 < 0 or grid[x - 1, y - 1] == 1:
+        valid_actions.remove(Action.WE_NOR)
+    if x + 1 > n or y - 1 < 0 or grid[x + 1, y - 1] == 1:
+        valid_actions.remove(Action.WE_SOU)
+    if x - 1 < 0 or y + 1 > m or grid[x - 1, y + 1] == 1:
+        valid_actions.remove(Action.EA_NOR)
+    if x + 1 > n or y +1 > m or grid[x + 1, y + 1] == 1:
+        valid_actions.remove(Action.EA_SOU)
 
     return valid_actions
+def prune_func(grid, path):
+    """
+	Trim  the points
+    """
+    pp_init = [p for p in path]
 
+    n = 0
+    while n < len(pp_init) - 2:
+        waypoint_uno = pp_init[n]
+        waypoint_dos = pp_init[n+1]
+        waypoint_tres = pp_init[n+2]
+
+        point_counter = bresenham(waypoint_uno[0], waypoint_uno[1], waypoint_tres[0], waypoint_tres[1])
+        if all(grid[count[0], count[1]] == 0 for count in point_counter):
+            pp_init.remove(waypoint_dos)
+        else:
+            n += 1
+
+    return pp_init
 
 def a_star(grid, h, start, goal):
 
@@ -123,60 +141,50 @@ def a_star(grid, h, start, goal):
             current_cost = 0.0
         else:
             current_cost = branch[current_node][0]
-
+            
         if current_node == goal:
             print('Found a path.')
             found = True
             break
         else:
-            for action in valid_actions(grid, current_node):
+            for direction_vec in valid_actions(grid, current_node):
                 # get the tuple representation
-                da = action.delta
-                next_node = (current_node[0] + da[0], current_node[1] + da[1])
-                branch_cost = current_cost + action.cost
+                delta_action_dir = direction_vec.delta
+                next_node = (current_node[0] + delta_action_dir[0], current_node[1] + delta_action_dir[1])
+                branch_cost = current_cost + direction_vec.cost
                 queue_cost = branch_cost + h(next_node, goal)
+                
 
                 if next_node not in visited:
+
                     visited.add(next_node)
-                    branch[next_node] = (branch_cost, current_node, action)
+                    branch[next_node] = (branch_cost, current_node, direction_vec)
                     queue.put((queue_cost, next_node))
+
 
     if found:
         # retrace steps
-        n = goal
-        path_cost = branch[n][0]
+        goal_step = goal
+
+        path_cost = branch[goal_step][0]
         path.append(goal)
-        while branch[n][1] != start:
-            path.append(branch[n][1])
-            n = branch[n][1]
-        path.append(branch[n][1])
+        while branch[goal_step][1] != start:
+            path.append(branch[goal_step][1])
+            goal_step = branch[goal_step][1]
+        path.append(branch[goal_step][1])
     else:
         print('**********************')
         print('Failed to find a path!')
-        print('**********************')
+        print('**********************') 
     return path[::-1], path_cost
 
 
+
 def heuristic(position, goal_position):
-    return np.linalg.norm(np.array(position) - np.array(goal_position))
-
-
-def bres_prune(grid, path):
+    """ 
+             find the herustic for the postion by normalizing
     """
-    Use the Bresenham module to trim uneeded waypoints from path
-    """
-    pruned_path = [p for p in path]
+    nump_pos=np.array(position)
+    nump_goal=np.array(goal_position)
+    return np.linalg.norm(nump_pos - nump_pos)
 
-    i = 0
-    while i < len(pruned_path) - 2:
-        p1 = pruned_path[i]
-        p2 = pruned_path[i+1]
-        p3 = pruned_path[i+2]
-
-        points = bresenham(p1[0], p1[1], p3[0], p3[1])
-        if all(grid[point[0], point[1]] == 0 for point in points):
-            pruned_path.remove(p2)
-        else:
-            i += 1
-
-    return pruned_path
