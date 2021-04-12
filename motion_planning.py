@@ -156,7 +156,7 @@ class MotionPlanning(Drone):
 
         can_be_reached = False
         new=self.target_loc
-
+        goal_position=new
         while not can_be_reached and new==(None,None):
             converage_radius = 150
             random_goal_coordinate = local_to_global([pos_of_craft[0]+random.uniform(-converage_radius, converage_radius),
