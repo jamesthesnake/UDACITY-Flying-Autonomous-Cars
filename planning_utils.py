@@ -186,5 +186,5 @@ def heuristic(position, goal_position):
     """
     nump_pos=np.array(position)
     nump_goal=np.array(goal_position)
-    return np.linalg.norm(nump_pos - nump_pos)
+    return np.linalg.norm(nump_pos - nump_goal)
 
